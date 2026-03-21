@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="そら">
+<title>そら — 天気</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-top: #0a0e1a;
+    --sky-mid: #0d1f3c;
+    --sky-low: #1a3a6b;
+    --accent: #7eb8f7;
+    --accent2: #c8e6ff;
+    --warm: #ffd580;
+    --text: #e8f4ff;
+    --text-dim: rgba(232,244,255,0.55);
+    --glass: rgba(255,255,255,0.07);
+    --glass-border: rgba(255,255,255,0.14);
+    --radius: 20px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--sky-top);
+    color: var(--text);
+    min-height: 100dvh;
+    overflow-x: hidden;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bot);
+    position: relative;
+  }
+
+  /* Animated sky background */
+  .sky-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: linear-gradient(180deg, #020510 0%, #081530 30%, #0e2554 65%, #1a4480 100%);
+    overflow: hidden;
+  }
+  .sky-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 30% 20%, rgba(126,184,247,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 80% 60%, rgba(100,140,220,0.08) 0%, transparent 70%);
+    animation: skyPulse 8s ease-in-out infinite alternate;
+  }
+  @keyframes skyPulse {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+  }
+
+  /* Stars */
+  .stars {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle var(--dur, 3s) ease-in-out infinite alternate;
+  }
+  @keyframes twinkle {
+    from { opacity: var(--minop, 0.2); transform: scale(0.8); }
+    to { opacity: var(--maxop, 1); transform: scale(1.2); }
+  }
+
+  /* Main content */
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 0 0 40px;
+    min-height: 100dvh;
+  }
+
+  /* Header / Current weather */
+  .header {
+    padding: 20px 24px 0;
+    text-align: center;
+  }
+
+  .location-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.1s;
+  }
+  .location-icon {
+    width: 14px; height: 14px;
+    fill: var(--accent);
+  }
+  .location-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent2);
+    letter-spacing: 0.05em;
+  }
+
+  .current-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.2s;
+  }
+
+  .weather-icon-main {
+    font-size: 90px;
+    line-height: 1;
+    display: block;
+    filter: drop-shadow(0 0 30px rgba(126,184,247,0.4));
+    opacity: 0;
+    animation: fadeUp 0.7s ease forwards 0.3s, float 4s ease-in-out infinite 1s;
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .temp-main {
+    font-family: 'DM Serif Display', serif;
+    font-size: 96px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin: 8px 0 4px;
+    opacity: 0;
+    animation: fadeUp 0.7s ease forwards 0.4s;
+    text-shadow: 0 0 60px rgba(126,184,247,0.3);
+  }
+  .temp-unit {
+    font-size: 40px;
+    vertical-align: super;
+    font-family: 'DM Serif Display', serif;
+  }
+
+  .weather-desc {
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--accent2);
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.5s;
+  }
+
+  .feels-like {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.6s;
+  }
+
+  /* Stat cards row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 0 16px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.7s;
+  }
+  .stat-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 12px 8px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+  }
+  .stat-icon { font-size: 18px; display: block; margin-bottom: 4px; }
+  .stat-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent2);
+    display: block;
+  }
+  .stat-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    display: block;
+    margin-top: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Section label */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 0 24px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-border);
+  }
+
+  /* Hourly forecast */
+  .hourly-container {
+    padding: 0 16px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.8s;
+  }
+  .hourly-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    scroll-snap-type: x mandatory;
+  }
+  .hourly-scroll::-webkit-scrollbar { display: none; }
+
+  .hour-card {
+    flex: 0 0 auto;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 12px 10px;
+    text-align: center;
+    width: 68px;
+    backdrop-filter: blur(10px);
+    scroll-snap-align: start;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .hour-card.now {
+    background: rgba(126,184,247,0.18);
+    border-color: rgba(126,184,247,0.45);
+  }
+  .hour-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    display: block;
+  }
+  .hour-card.now .hour-time { color: var(--accent); }
+  .hour-emoji { font-size: 22px; display: block; margin-bottom: 6px; }
+  .hour-temp {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .hour-precip {
+    font-size: 9px;
+    color: #7eb8f7;
+    margin-top: 3px;
+    display: block;
+  }
+
+  /* Loading state */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80dvh;
+    gap: 20px;
+  }
+  .loading-icon {
+    font-size: 60px;
+    animation: spin 2s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .loading-text {
+    font-size: 14px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* Permission screen */
+  .permission-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    padding: 40px 28px;
+    text-align: center;
+    gap: 0;
+  }
+  .perm-icon {
+    font-size: 72px;
+    margin-bottom: 28px;
+    filter: drop-shadow(0 0 30px rgba(126,184,247,0.5));
+    animation: float 4s ease-in-out infinite;
+  }
+  .perm-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 32px;
+    color: var(--text);
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .perm-subtitle {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    margin-bottom: 40px;
+    max-width: 280px;
+  }
+  .perm-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 20px;
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(12px);
+  }
+  .perm-card-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+  }
+  .perm-card-icon { font-size: 28px; flex-shrink: 0; }
+  .perm-card-text strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent2);
+    margin-bottom: 3px;
+  }
+  .perm-card-text span {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .perm-allow-btn {
+    width: 100%;
+    max-width: 320px;
+    padding: 18px;
+    background: linear-gradient(135deg, #3a7bd5, #7eb8f7);
+    border: none;
+    border-radius: 16px;
+    color: white;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    box-shadow: 0 8px 30px rgba(62,123,213,0.45);
+    transition: transform 0.15s, box-shadow 0.15s;
+    margin-bottom: 12px;
+  }
+  .perm-allow-btn:active { transform: scale(0.97); box-shadow: 0 4px 15px rgba(62,123,213,0.3); }
+
+  .perm-deny-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px;
+    letter-spacing: 0.03em;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* Settings guide screen */
+  .settings-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    padding: 40px 28px;
+    text-align: center;
+  }
+  .settings-icon {
+    font-size: 64px;
+    margin-bottom: 24px;
+    animation: float 4s ease-in-out infinite;
+  }
+  .settings-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .settings-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    margin-bottom: 32px;
+    max-width: 290px;
+  }
+  .steps-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 6px 0;
+    width: 100%;
+    max-width: 320px;
+    backdrop-filter: blur(12px);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .step-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    position: relative;
+  }
+  .step-row + .step-row {
+    border-top: 1px solid var(--glass-border);
+  }
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(126,184,247,0.2);
+    border: 1px solid rgba(126,184,247,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .step-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    text-align: left;
+  }
+  .step-text em {
+    font-style: normal;
+    color: var(--accent2);
+    font-weight: 500;
+  }
+  .settings-open-btn {
+    width: 100%;
+    max-width: 320px;
+    padding: 16px;
+    background: linear-gradient(135deg, #3a7bd5, #7eb8f7);
+    border: none;
+    border-radius: 16px;
+    color: white;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 30px rgba(62,123,213,0.4);
+    transition: transform 0.15s;
+    margin-bottom: 12px;
+    letter-spacing: 0.04em;
+  }
+  .settings-open-btn:active { transform: scale(0.97); }
+  .settings-retry-btn {
+    background: none;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px 24px;
+    cursor: pointer;
+  }
+
+  /* Error state */
+  .error-box {
+    margin: 40px 24px;
+    background: rgba(255,100,100,0.1);
+    border: 1px solid rgba(255,100,100,0.3);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+  }
+  .error-box p { font-size: 14px; line-height: 1.7; color: #ffb3b3; }
+  .retry-btn {
+    margin-top: 16px;
+    background: rgba(255,100,100,0.2);
+    border: 1px solid rgba(255,100,100,0.4);
+    color: #ffb3b3;
+    border-radius: 12px;
+    padding: 10px 24px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* Refresh button */
+  .refresh-btn {
+    display: block;
+    margin: 8px auto 0;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    color: var(--accent2);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 8px 20px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<div class="sky-bg">
+  <div class="stars" id="stars"></div>
+</div>
+
+<div class="app" id="app">
+  <div class="loading" id="loading">
+    <span class="loading-icon">🌐</span>
+    <span class="loading-text">現在地を取得中...</span>
+  </div>
+</div>
+
+<script>
+// Generate stars
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 80; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const size = Math.random() * 2.5 + 0.5;
+  s.style.cssText = `
+    width:${size}px; height:${size}px;
+    left:${Math.random()*100}%;
+    top:${Math.random()*70}%;
+    --dur:${2+Math.random()*4}s;
+    --minop:${0.1+Math.random()*0.3};
+    --maxop:${0.6+Math.random()*0.4};
+    animation-delay:${Math.random()*5}s;
+  `;
+  starsEl.appendChild(s);
+}
+
+// WMO weather code to emoji + description
+function weatherInfo(code, isDay=1) {
+  const map = {
+    0: [isDay?'☀️':'🌙', '快晴'],
+    1: [isDay?'🌤️':'🌙', 'ほぼ晴れ'],
+    2: ['⛅', '一部曇り'],
+    3: ['☁️', '曇り'],
+    45: ['🌫️', '霧'],
+    48: ['🌫️', '霧氷'],
+    51: ['🌦️', '霧雨（弱）'],
+    53: ['🌦️', '霧雨'],
+    55: ['🌧️', '霧雨（強）'],
+    61: ['🌧️', '雨（弱）'],
+    63: ['🌧️', '雨'],
+    65: ['🌧️', '大雨'],
+    71: ['🌨️', '雪（弱）'],
+    73: ['❄️', '雪'],
+    75: ['❄️', '大雪'],
+    77: ['🌨️', '霧雪'],
+    80: ['🌦️', 'にわか雨'],
+    81: ['🌧️', 'にわか雨（中）'],
+    82: ['⛈️', 'にわか雨（強）'],
+    85: ['🌨️', 'にわか雪'],
+    86: ['❄️', 'にわか大雪'],
+    95: ['⛈️', '雷雨'],
+    96: ['⛈️', '雷雨＋雹'],
+    99: ['⛈️', '激しい雷雨'],
+  };
+  return map[code] || ['🌡️', '不明'];
+}
+
+function formatTime(isoStr) {
+  const d = new Date(isoStr);
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+
+function formatHour(isoStr) {
+  const d = new Date(isoStr);
+  const h = d.getHours();
+  return h === 0 ? '0:00' : h + ':00';
+}
+
+function formatNow() {
+  const d = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`);
+    const d = await r.json();
+    const a = d.address || {};
+    return a.city || a.town || a.village || a.county || a.state || '現在地';
+  } catch {
+    return '現在地';
+  }
+}
+
+async function fetchWeather(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,apparent_temperature,weathercode,precipitation_probability,windspeed_10m,relativehumidity_2m,is_day&current_weather=true&timezone=auto&forecast_days=3`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('天気の取得に失敗しました');
+  return r.json();
+}
+
+function render(weather, city, lat, lon) {
+  const app = document.getElementById('app');
+  const cw = weather.current_weather;
+  const hourly = weather.hourly;
+
+  // Find current hour index
+  const now = new Date();
+  const nowHour = now.toISOString().slice(0,13) + ':00';
+  let currentIdx = hourly.time.findIndex(t => t === nowHour);
+  if (currentIdx < 0) currentIdx = 0;
+
+  // Take 48 hours from now
+  const slice48 = (arr) => arr.slice(currentIdx, currentIdx + 48);
+  const times = slice48(hourly.time);
+  const temps = slice48(hourly.temperature_2m);
+  const appTemps = slice48(hourly.apparent_temperature);
+  const codes = slice48(hourly.weathercode);
+  const precips = slice48(hourly.precipitation_probability);
+  const winds = slice48(hourly.windspeed_10m);
+  const humids = slice48(hourly.relativehumidity_2m);
+  const isDays = slice48(hourly.is_day);
+
+  const [mainEmoji, mainDesc] = weatherInfo(cw.weathercode, cw.is_day);
+  const currentTemp = Math.round(cw.temperature);
+  const currentFeels = Math.round(appTemps[0] ?? currentTemp);
+  const currentWind = Math.round(cw.windspeed);
+  const currentHumid = humids[0] ?? '--';
+  const currentPrecip = precips[0] ?? 0;
+
+  // UV index placeholder (open-meteo free tier)
+  const hourCards = times.map((t, i) => {
+    const [em] = weatherInfo(codes[i], isDays[i]);
+    const isNow = i === 0;
+    const precip = precips[i];
+    return `
+      <div class="hour-card ${isNow ? 'now' : ''}">
+        <span class="hour-time">${isNow ? '今' : formatHour(t)}</span>
+        <span class="hour-emoji">${em}</span>
+        <span class="hour-temp">${Math.round(temps[i])}°</span>
+        ${precip > 0 ? `<span class="hour-precip">💧${precip}%</span>` : `<span class="hour-precip" style="opacity:0">—</span>`}
+      </div>
+    `;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="header">
+      <div class="location-row">
+        <svg class="location-icon" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        <span class="location-name">${city}</span>
+      </div>
+      <div class="current-time">${formatNow()}</div>
+      <span class="weather-icon-main">${mainEmoji}</span>
+      <div class="temp-main">${currentTemp}<span class="temp-unit">°</span></div>
+      <div class="weather-desc">${mainDesc}</div>
+      <div class="feels-like">体感 ${currentFeels}°C</div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-icon">💧</span>
+        <span class="stat-value">${currentHumid}%</span>
+        <span class="stat-label">湿度</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">💨</span>
+        <span class="stat-value">${currentWind}</span>
+        <span class="stat-label">km/h</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🌂</span>
+        <span class="stat-value">${currentPrecip}%</span>
+        <span class="stat-label">降水率</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">🌡️</span>
+        <span class="stat-value">${currentFeels}°</span>
+        <span class="stat-label">体感</span>
+      </div>
+    </div>
+
+    <div class="section-label">48時間予報</div>
+    <div class="hourly-container">
+      <div class="hourly-scroll">${hourCards}</div>
+    </div>
+
+    <button class="refresh-btn" onclick="init()">↻ 更新</button>
+  `;
+}
+
+function showError(msg) {
+  document.getElementById('app').innerHTML = `
+    <div class="error-box">
+      <p>⚠️ ${msg}</p>
+      <button class="retry-btn" onclick="showPermissionScreen()">戻る</button>
+    </div>
+  `;
+}
+
+function setLoading(text) {
+  document.getElementById('app').innerHTML = `
+    <div class="loading">
+      <span class="loading-icon">🌐</span>
+      <span class="loading-text">${text}</span>
+    </div>
+  `;
+}
+
+// ── 1. 許可確認画面 ──────────────────────────────────────────────
+function showPermissionScreen() {
+  document.getElementById('app').innerHTML = `
+    <div class="permission-screen">
+      <span class="perm-icon">📍</span>
+      <div class="perm-title">現在地の天気</div>
+      <p class="perm-subtitle">正確な天気予報のために<br>位置情報へのアクセスを許可してください</p>
+
+      <div class="perm-card">
+        <div class="perm-card-row">
+          <span class="perm-card-icon">🌡️</span>
+          <div class="perm-card-text">
+            <strong>リアルタイム気温・天気</strong>
+            <span>今いる場所の最新気象情報を表示します</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="perm-card">
+        <div class="perm-card-row">
+          <span class="perm-card-icon">🔒</span>
+          <div class="perm-card-text">
+            <strong>プライバシー保護</strong>
+            <span>位置情報はお天気APIへの問い合わせにのみ使用します。外部へ保存・共有しません</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="perm-allow-btn" onclick="requestLocation()">📍 位置情報を許可して開始</button>
+      <button class="perm-deny-btn" onclick="showSettingsGuide('denied_by_user')">許可しない</button>
+    </div>
+  `;
+}
+
+// ── 2. 位置情報リクエスト ─────────────────────────────────────────
+function requestLocation() {
+  if (!navigator.geolocation) {
+    showError('このブラウザは位置情報をサポートしていません。');
+    return;
+  }
+  setLoading('位置情報を取得中...');
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    setLoading('天気データを取得中...');
+    try {
+      const [weather, city] = await Promise.all([
+        fetchWeather(lat, lon),
+        reverseGeocode(lat, lon)
+      ]);
+      render(weather, city, lat, lon);
+    } catch (e) {
+      showError('天気データの取得に失敗しました。<br>インターネット接続を確認してください。');
+    }
+  }, (err) => {
+    // 拒否またはタイムアウト → 設定案内画面へ
+    showSettingsGuide(err.code === 1 ? 'denied' : 'error');
+  }, { timeout: 10000, maximumAge: 60000 });
+}
+
+// ── 3. 設定案内画面 ──────────────────────────────────────────────
+function showSettingsGuide(reason) {
+  const isDeniedByUser = reason === 'denied_by_user';
+  const title = isDeniedByUser ? '位置情報を許可しませんでした' : '位置情報が拒否されています';
+  const desc = isDeniedByUser
+    ? '位置情報がないと現在地の天気を取得できません。\nSafariの設定から許可することができます。'
+    : 'ブラウザまたはOSの設定で位置情報がブロックされています。\n以下の手順で許可してください。';
+
+  document.getElementById('app').innerHTML = `
+    <div class="settings-screen">
+      <span class="settings-icon">⚙️</span>
+      <div class="settings-title">${title}</div>
+      <p class="settings-desc">${desc}</p>
+
+      <div class="steps-card">
+        <div class="step-row">
+          <div class="step-num">1</div>
+          <div class="step-text">iPhoneの <em>設定</em> アプリを開く</div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">2</div>
+          <div class="step-text"><em>プライバシーとセキュリティ</em> → <em>位置情報サービス</em> をタップ</div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">3</div>
+          <div class="step-text"><em>Safari</em> を選び、<em>「このAppの使用中」</em> を選択</div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">4</div>
+          <div class="step-text">このページに戻り <em>「再試行」</em> をタップ</div>
+        </div>
+      </div>
+
+      <button class="settings-open-btn" onclick="openSettings()">⚙️ 設定アプリを開く</button>
+      <button class="settings-retry-btn" onclick="requestLocation()">↻ 再試行</button>
+    </div>
+  `;
+}
+
+// iOSのカスタムURLスキームで設定を開く（Safari経由のみ対応）
+function openSettings() {
+  // iOS Safari では app-settings: または prefs: は動作しないため
+  // 設定アプリへの直接ディープリンクを試みてからフォールバック
+  const a = document.createElement('a');
+  a.href = 'app-settings:';
+  a.click();
+  // 300ms後に開けなかった場合のフォールバックメッセージ
+  setTimeout(() => {
+    const btn = document.querySelector('.settings-open-btn');
+    if (btn) {
+      btn.textContent = '⚙️ 設定 › プライバシー › 位置情報';
+      btn.style.fontSize = '13px';
+      btn.style.background = 'rgba(126,184,247,0.2)';
+      btn.style.boxShadow = 'none';
+      btn.style.border = '1px solid rgba(126,184,247,0.4)';
+    }
+  }, 400);
+}
+
+// ── 起動 ─────────────────────────────────────────────────────────
+// 既に許可済みかチェックしてから画面を出し分ける
+async function init() {
+  if (navigator.permissions) {
+    try {
+      const status = await navigator.permissions.query({ name: 'geolocation' });
+      if (status.state === 'granted') {
+        // すでに許可済み → 直接取得
+        setLoading('現在地を取得中...');
+        requestLocation();
+        return;
+      } else if (status.state === 'denied') {
+        // すでに拒否済み → 設定案内へ
+        showSettingsGuide('denied');
+        return;
+      }
+    } catch(e) { /* permissions API 非対応の場合は fallthrough */ }
+  }
+  // prompt 状態 or 不明 → 確認画面を表示
+  showPermissionScreen();
+}
+
+init();
+</script>
+</body>
+</html>
