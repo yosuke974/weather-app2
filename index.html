@@ -207,11 +207,9 @@ border-radius: 50%; animation: lb 1.2s ease-in-out infinite;
 <script>
 const SPOTS = [
   {
-    name: '小浜', lat: 35.4963, lon: 135.7469, note: '若狭湾',
-    // 内湾のためMarine APIが使えない場合の吹送距離(km)と係数
-    // 若狭湾: 湾の奥行き約40km、やや閉じた湾
-    fetchScale: 0.55,   // 風速→波高の係数（外洋より小さい）
-    periodScale: 0.7,   // 波周期の係数
+    name: '小浜', lat: 35.65, lon: 135.60, note: '若狭湾（湾中央沖）',
+    fetchScale: 0.80,   // 外洋寄りのため係数大きめ
+    periodScale: 0.85,
   },
   {
     name: '明石', lat: 34.6451, lon: 134.9983, note: '播磨灘・明石海峡',
